@@ -1,6 +1,6 @@
 # Fides
 
-[![tests](https://github.com/YOUR_USERNAME/fides/actions/workflows/tests.yml/badge.svg)](https://github.com/YOUR_USERNAME/fides/actions/workflows/tests.yml)
+[![tests](https://github.com/AnonRish/fides/actions/workflows/tests.yml/badge.svg)](https://github.com/AnonRish/fides/actions/workflows/tests.yml)
 
 **A reference implementation of a packet-hashing inference-only verification tap, built against the AI 2040: Plan A verification agenda.**
 
