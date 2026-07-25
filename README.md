@@ -18,7 +18,7 @@ Fides is a from-scratch, tested, open-source testbed. Of the 11 workstreams with
 
 **Real but caveated (2):** `recompute.py` builds an independent SimHash-based recomputation-verification construction — not TOPLOC or DiFR, and not a contribution to either becoming production-ready. Its generalization test (three unrelated vector/hash-length configurations) is relevant to the *spirit* of **Frontier recomputation algorithms**, and its red-team tests (brute-force + adaptive hill-climbing) are relevant to the *spirit* of **Recomputation red-teaming** — but both attack `recompute.py`'s own scheme, not the actual algorithms those workstreams name. Read this as "demonstrates the principle is testable," not "makes progress on those two items."
 
-**Not addressed at all (2):** **Inference reproducibility workarounds** and **Recomputation algorithms** — both currently active elsewhere via TOPLOC and DiFR specifically. `recompute.py` does not port, extend, or otherwise touch either one; building a parallel construction isn't the same as contributing to the algorithms actually being tested on real hardware right now, and this README does not claim it is.
+**Not attempted at all (2, downgraded from earlier claims — see below):** **Inference reproducibility workarounds** and **Recomputation algorithms**, both currently active elsewhere via TOPLOC and DiFR specifically. `toploc_reference.py` is a from-scratch reimplementation of TOPLOC's actual algorithm — top-k-by-magnitude selection, polynomial interpolation over GF(65537), graded exponent/mantissa comparison — built by directly reading [PrimeIntellect-ai/toploc](https://github.com/PrimeIntellect-ai/toploc)'s source after `pip install toploc` hit a real ABI mismatch between its prebuilt C extension and the available torch build in this environment (documented, not hidden, in `spec/PROTOCOL.md` section 11). This is meaningfully more accurate than `recompute.py`'s earlier SimHash guess — TOPLOC does not use random-hyperplane hashing — but it is still an independently-implemented, non-bit-compatible reference construction, not a contribution to the actual algorithms being tested on real hardware right now. Read the distinction precisely: verified understanding of the real algorithm, not participation in it.
 
 `accumulator.py` + `zk_verification.py` sit outside this table entirely — see "Two verification mechanisms" below. The 6 fully physical workstreams (passive optical TAPs, recomputation-server traffic capture, the storage-bank-to-inference-unit path, TAP installation, physical security and audits, side-channel shielding) are out of scope for any software project, this repo included. See `spec/PROTOCOL.md` section 9 for the complete, item-by-item audit.
 
@@ -61,7 +61,7 @@ Running `examples/demo.py` section [6] reproduces the same subtle covert-trainin
 ```bash
 pip install -e ".[dev]"
 python examples/demo.py     # honest device, a blatant liar, a subtle attacker, and a tampered ledger
-pytest tests/ -v             # 89 tests
+pytest tests/ -v             # 98 tests
 ```
 
 The demo runs a device sneaking one covert training step into otherwise-legitimate inference epochs while declaring everything "inference." In a real run it gets caught at epoch 3 out of 15 — consistent with the model's own prediction that a single epoch at this attack size has roughly a 46% catch probability, compounding to >99.7% by epoch 10 (see `examples/demo.py` section 5, and `spec/PROTOCOL.md` section 5).
@@ -95,11 +95,12 @@ src/fides/
   server_attestation.py  challenge-response software heartbeat — recomputation server security (#11)
   wipe.py           forced-memorization memory wipe + spot-check — memory wipes (#15)
   warden.py         autocorrelation-based covert-signal detection — side-channel wardens (#17)
+  toploc_reference.py  faithful reimplementation of TOPLOC's real algorithm, read from its source (#5/#8, see honest caveat above)
   protocol.py       Tap: wires prover + verifier + registry + ledger together
 spec/PROTOCOL.md     RFC-style writeup: threat model, math, limitations, full 17-item audit
 docs/ARCHITECTURE.md  the diagram above plus a walk through each module
 examples/demo.py      end-to-end runnable demo (sampling vs. ZK mechanisms)
-tests/                89 tests, all passing
+tests/                98 tests, all passing
 ```
 
 ## References

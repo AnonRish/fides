@@ -60,6 +60,17 @@ from .server_attestation import (
     respond_to_challenge,
     verify_response,
 )
+from .toploc_reference import (
+    to_bfloat16_bits,
+    bfloat16_parts,
+    select_topk_by_magnitude,
+    lagrange_coefficients,
+    evaluate_polynomial,
+    build_proof as build_toploc_style_proof,
+    verify_proof as verify_toploc_style_proof,
+    TopKProof,
+    VerificationResult as TopKVerificationResult,
+)
 
 __all__ = [
     "KernelOp",
@@ -125,6 +136,15 @@ __all__ = [
     "issue_challenge",
     "respond_to_challenge",
     "verify_response",
+    "to_bfloat16_bits",
+    "bfloat16_parts",
+    "select_topk_by_magnitude",
+    "lagrange_coefficients",
+    "evaluate_polynomial",
+    "build_toploc_style_proof",
+    "verify_toploc_style_proof",
+    "TopKProof",
+    "TopKVerificationResult",
 ]
 
 __version__ = "0.1.0"
