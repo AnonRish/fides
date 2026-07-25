@@ -4,18 +4,23 @@
 
 [AI 2040: Plan A](https://ai-2040.com/) is the AI Futures Project's (the team behind [AI 2027](https://ai-2027.com/)) recommendation for how the US and China could verifiably slow down the race to superintelligence. The plan's [verification supplement](https://ai-2040.com/supplements/verification-plan) argues the whole deal is only as strong as the ability to check compliance without relying on trust. Amodo Design, the hardware firm prototyping the plan's network-tap-and-recomputation approach, published a [SITREP](https://amododesign.com/ai-verification/plan-a-sitrep/) grading the 17 engineering workstreams that approach needs: 4 active, 6 not started, 7 not on track, and one (memory wipes) graded uncertain.
 
-Fides is a from-scratch, tested, open-source testbed. It directly covers **2 of the 17** — the two that are both genuinely software-only and currently unstaffed:
+Fides is a from-scratch, tested, open-source testbed. Of the 11 workstreams with any software-only path at all, it directly and solidly addresses **7**, has a real but honestly-caveated partial connection to **2** more, and does not touch **2**:
 
 | Workstream (SITREP grade) | What Fides does about it |
 |---|---|
-| **New TAP types & bandwidth limits** — *"sampling or packet hashing TAPs"* (not started) | `commitment.py`: a BLAKE3 Merkle-tree tap that commits to every event locally and cheaply, and only ever transmits full data for a small, auditor-chosen sample — instead of mirroring 100% of traffic to a recomputation server. |
-| **Verification reporting** — integrity of what the recomputation server reports back to the verifier (not on track) | `ledger.py`: a hash-chained, signed audit log. A compromised or coerced auditor can't quietly rewrite a past finding without breaking the chain from that point forward. |
+| **New TAP types & bandwidth limits** (not started) | `commitment.py`: BLAKE3 Merkle-tree packet-hashing tap — commit locally and cheaply, reveal only a small auditor-chosen sample. |
+| **Verification reporting** (not on track) | `ledger.py`: hash-chained, signed audit log — a compromised auditor can't quietly rewrite a past finding without breaking the chain. |
+| **Reproducible inference stack** (not started) | `determinism.py`: fixed-order deterministic reduction vs. a schedule-dependent one — fixes the specific, well-documented floating-point-reduction-order mechanism, not a full inference stack. |
+| **Network reproducibility** (not started) | `packet_reconstruction.py`: content-addressed, order-independent verification that a message was delivered completely and correctly regardless of packet arrival order — the narrower alternative Amodo's own text floats, not bit-exact packet replay. |
+| **Recomputation server security** (not on track) | `server_attestation.py`: a challenge-response software heartbeat catching silent logic substitution and history rollback — explicitly a partial mitigation, not a defense against physical compromise. |
+| **Memory wipes** (uncertain) | `wipe.py`: forced-memorization wipe with spot-check verification, reusing `security.py`'s exact detection-probability math against a different object (memory blocks instead of trace events). |
+| **Side channel wardens** (not on track) | `warden.py`: autocorrelation-based detection of injected periodic signals, with an empirically characterized detection floor and an honestly-documented harmonic-ambiguity limitation. |
 
-`classifier.py` + `features.py` (an interpretable classifier separating inference-shaped from training-shaped kernel traces) is **not** a claim on "Frontier recomputation algorithms" or any other graded workstream — recomputation algorithms verify that a specific claimed *output* is correct (TOPLOC/DiFR's job); this classifier answers the different question of what *kind* of compute a trace's shape implies. An earlier version of this README conflated the two; see `spec/PROTOCOL.md` section 4 for the corrected, precise scope, and the [Compute Verification Project](mailto:dreuter14@gmail.com)'s more advanced working draft (with an open red-teaming competition against it) as the actual state of the art on the real question.
+**Real but caveated (2):** `recompute.py` builds an independent SimHash-based recomputation-verification construction — not TOPLOC or DiFR, and not a contribution to either becoming production-ready. Its generalization test (three unrelated vector/hash-length configurations) is relevant to the *spirit* of **Frontier recomputation algorithms**, and its red-team tests (brute-force + adaptive hill-climbing) are relevant to the *spirit* of **Recomputation red-teaming** — but both attack `recompute.py`'s own scheme, not the actual algorithms those workstreams name. Read this as "demonstrates the principle is testable," not "makes progress on those two items."
 
-`accumulator.py` + `zk_verification.py` is **not one of the 17** either — those 17 are specifically the network-tap-and-recomputation approach's workstreams. Amodo's own SITREP separately names "Cryptographic/ZKP verification" as a parallel track with its own roughly $100M in mobilized R&D funding, alongside a similar pool for physical-security R&D. The accumulator is a reference implementation aimed at that parallel track, not at any row in the table above.
+**Not addressed at all (2):** **Inference reproducibility workarounds** and **Recomputation algorithms** — both currently active elsewhere via TOPLOC and DiFR specifically. `recompute.py` does not port, extend, or otherwise touch either one; building a parallel construction isn't the same as contributing to the algorithms actually being tested on real hardware right now, and this README does not claim it is.
 
-Net honest count against the 17: of the roughly 9-11 that have *any* software-only component at all (the other 6 — passive optical TAPs, recomputation-server traffic capture, the storage-bank-to-inference-unit path, TAP installation, physical security and audits, and side-channel shielding — are physical by construction and no amount of software touches them), Fides directly closes 2 and leaves the rest — reproducible inference stack, network reproducibility, frontier recomputation algorithms, recomputation red-teaming, recomputation server security, and side-channel wardens — untouched. See the question this raises addressed directly in `spec/PROTOCOL.md` section 9.
+`accumulator.py` + `zk_verification.py` sit outside this table entirely — see "Two verification mechanisms" below. The 6 fully physical workstreams (passive optical TAPs, recomputation-server traffic capture, the storage-bank-to-inference-unit path, TAP installation, physical security and audits, side-channel shielding) are out of scope for any software project, this repo included. See `spec/PROTOCOL.md` section 9 for the complete, item-by-item audit.
 
 ## How it fits together
 
@@ -56,7 +61,7 @@ Running `examples/demo.py` section [6] reproduces the same subtle covert-trainin
 ```bash
 pip install -e ".[dev]"
 python examples/demo.py     # honest device, a blatant liar, a subtle attacker, and a tampered ledger
-pytest tests/ -v             # 59 tests
+pytest tests/ -v             # 89 tests
 ```
 
 The demo runs a device sneaking one covert training step into otherwise-legitimate inference epochs while declaring everything "inference." In a real run it gets caught at epoch 3 out of 15 — consistent with the model's own prediction that a single epoch at this attack size has roughly a 46% catch probability, compounding to >99.7% by epoch 10 (see `examples/demo.py` section 5, and `spec/PROTOCOL.md` section 5).
@@ -77,18 +82,24 @@ src/fides/
   trace.py         synthetic kernel-event trace generator (training / inference / mixed)
   features.py      privacy-preserving statistical fingerprint of a trace
   classifier.py     interpretable inference-vs-training classifier
-  commitment.py     BLAKE3 Merkle commitment + proofs — the packet-hashing tap
+  commitment.py     BLAKE3 Merkle commitment + proofs — the packet-hashing tap (#3)
   identity.py       Ed25519 device identity (signing / verification)
   attestation.py    Prover / Verifier: commit, spot-check reveal, audit
-  ledger.py         hash-chained, signed audit ledger (tamper-evident reporting)
+  ledger.py         hash-chained, signed audit ledger — verification reporting (#13)
   security.py       detection-probability math (exact + Poisson approximation)
-  accumulator.py    RSA accumulator: membership / non-membership proofs
-  zk_verification.py ZKProver / ZKVerifier: certainty-based compliance proof
+  accumulator.py    RSA accumulator: membership / non-membership proofs (ZK track, outside the 17)
+  zk_verification.py ZKProver / ZKVerifier: certainty-based compliance proof (ZK track, outside the 17)
+  determinism.py    deterministic vs. racy reduction — reproducible inference stack (#6)
+  packet_reconstruction.py  order-independent message verification — network reproducibility (#7)
+  recompute.py      SimHash recomputation-verification construction — spirit of #9/#10
+  server_attestation.py  challenge-response software heartbeat — recomputation server security (#11)
+  wipe.py           forced-memorization memory wipe + spot-check — memory wipes (#15)
+  warden.py         autocorrelation-based covert-signal detection — side-channel wardens (#17)
   protocol.py       Tap: wires prover + verifier + registry + ledger together
-spec/PROTOCOL.md     RFC-style writeup: threat model, math, limitations
+spec/PROTOCOL.md     RFC-style writeup: threat model, math, limitations, full 17-item audit
 docs/ARCHITECTURE.md  the diagram above plus a walk through each module
-examples/demo.py      end-to-end runnable demo, both mechanisms
-tests/                59 tests, all passing
+examples/demo.py      end-to-end runnable demo (sampling vs. ZK mechanisms)
+tests/                89 tests, all passing
 ```
 
 ## References

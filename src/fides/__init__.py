@@ -30,6 +30,36 @@ from .accumulator import (
     verify_nonmembership,
 )
 from .zk_verification import ZKProver, ZKVerifier, ZKComplianceProof, FORBIDDEN_OPS
+from .wipe import wipe, spot_check, fill_block, block_addresses
+from .warden import (
+    generate_baseline_noise,
+    inject_covert_signal,
+    autocorrelation,
+    autocorrelation_spectrum,
+    detect_periodic_signal,
+)
+from .determinism import deterministic_sum, racy_sum
+from .recompute import (
+    RecomputationVerifier,
+    RecomputationFingerprint,
+    generate_activation_vector,
+    perturb,
+    fabricate,
+    simhash,
+    hamming_distance,
+)
+from .packet_reconstruction import (
+    PacketCommitment,
+    commit_message,
+    chunk_message,
+    reconstruct_and_verify,
+)
+from .server_attestation import (
+    software_fingerprint,
+    issue_challenge,
+    respond_to_challenge,
+    verify_response,
+)
 
 __all__ = [
     "KernelOp",
@@ -69,6 +99,32 @@ __all__ = [
     "ZKVerifier",
     "ZKComplianceProof",
     "FORBIDDEN_OPS",
+    "wipe",
+    "spot_check",
+    "fill_block",
+    "block_addresses",
+    "generate_baseline_noise",
+    "inject_covert_signal",
+    "autocorrelation",
+    "autocorrelation_spectrum",
+    "detect_periodic_signal",
+    "deterministic_sum",
+    "racy_sum",
+    "RecomputationVerifier",
+    "RecomputationFingerprint",
+    "generate_activation_vector",
+    "perturb",
+    "fabricate",
+    "simhash",
+    "hamming_distance",
+    "PacketCommitment",
+    "commit_message",
+    "chunk_message",
+    "reconstruct_and_verify",
+    "software_fingerprint",
+    "issue_challenge",
+    "respond_to_challenge",
+    "verify_response",
 ]
 
 __version__ = "0.1.0"
