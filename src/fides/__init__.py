@@ -71,6 +71,15 @@ from .toploc_reference import (
     TopKProof,
     VerificationResult as TopKVerificationResult,
 )
+from .difr_reference import (
+    gumbel_max_sample,
+    gumbel_max_rank,
+    verify_token as verify_difr_token,
+    verify_sequence as verify_difr_sequence,
+    match_rate as difr_match_rate,
+    synthetic_distribution,
+    quantize_distribution,
+)
 
 __all__ = [
     "KernelOp",
@@ -145,6 +154,13 @@ __all__ = [
     "verify_toploc_style_proof",
     "TopKProof",
     "TopKVerificationResult",
+    "gumbel_max_sample",
+    "gumbel_max_rank",
+    "verify_difr_token",
+    "verify_difr_sequence",
+    "difr_match_rate",
+    "synthetic_distribution",
+    "quantize_distribution",
 ]
 
 __version__ = "0.1.0"

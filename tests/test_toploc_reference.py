@@ -108,3 +108,56 @@ def test_scheme_characterizes_the_honest_dishonest_gap_across_trials():
     avg_honest = sum(honest_matches) / len(honest_matches)
     avg_fake = sum(fake_matches) / len(fake_matches)
     assert avg_honest > avg_fake + 4, (avg_honest, avg_fake)
+
+
+def test_generalizes_across_configurations_item_9():
+    # Item 9 ("Frontier recomputation algorithms") against the ACCURATE
+    # reimplementation this time, not recompute.py's earlier SimHash
+    # guess -- fixes the inconsistency flagged in the prior session.
+    # Still not a claim of solving cross-architecture evolution, only
+    # that the real mechanism isn't hardcoded to one vector size or k.
+    for dim, k in [(64, 8), (256, 16), (1000, 32)]:
+        rng = random.Random(dim)
+        values = [rng.gauss(0, 1) for _ in range(dim)]
+        proof = build_proof(values, k=k)
+        jrng = random.Random(dim + 1)
+        jittered = [v + jrng.gauss(0, 0.0005) for v in values]
+        result = verify_proof(proof, jittered)
+        assert result.exponent_matches >= result.exponent_total * 0.8
+
+        frng = random.Random(dim + 2)
+        fake = [frng.gauss(0, 1) for _ in range(dim)]
+        fake_result = verify_proof(proof, fake)
+        assert fake_result.exponent_matches < fake_result.exponent_total * 0.5
+
+
+def test_red_team_hill_climbing_against_the_accurate_reimplementation_item_10():
+    # Item 10 ("Recomputation red-teaming") against toploc_reference.py
+    # specifically -- the earlier session ran this style of attack
+    # against recompute.py's SimHash guess, which is a different (and
+    # since-corrected) algorithm. Re-running it here against the
+    # algorithm actually read from TOPLOC's source is the fix.
+    values_rng = random.Random(50)
+    true_values = [values_rng.gauss(0, 1) for _ in range(128)]
+    proof = build_proof(true_values, k=12)
+
+    attacker_rng = random.Random(51)
+    attacker_values = [attacker_rng.gauss(0, 1) for _ in range(128)]
+
+    def score(vals):
+        r = verify_proof(proof, vals)
+        return r.exponent_matches
+
+    best = score(attacker_values)
+    for step in range(1000):
+        idx = step % 128
+        trial = list(attacker_values)
+        trial[idx] += 0.1 if (step // 128) % 2 == 0 else -0.1
+        s = score(trial)
+        if s > best:
+            attacker_values, best = trial, s
+
+    assert best < proof.k * 0.6, (
+        f"hill-climbing reached {best}/{proof.k} exponent matches against the "
+        "accurate reimplementation -- weaker than expected resistance"
+    )

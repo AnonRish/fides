@@ -1,5 +1,7 @@
 # Fides
 
+[![tests](https://github.com/YOUR_USERNAME/fides/actions/workflows/tests.yml/badge.svg)](https://github.com/YOUR_USERNAME/fides/actions/workflows/tests.yml)
+
 **A reference implementation of a packet-hashing inference-only verification tap, built against the AI 2040: Plan A verification agenda.**
 
 [AI 2040: Plan A](https://ai-2040.com/) is the AI Futures Project's (the team behind [AI 2027](https://ai-2027.com/)) recommendation for how the US and China could verifiably slow down the race to superintelligence. The plan's [verification supplement](https://ai-2040.com/supplements/verification-plan) argues the whole deal is only as strong as the ability to check compliance without relying on trust. Amodo Design, the hardware firm prototyping the plan's network-tap-and-recomputation approach, published a [SITREP](https://amododesign.com/ai-verification/plan-a-sitrep/) grading the 17 engineering workstreams that approach needs: 4 active, 6 not started, 7 not on track, and one (memory wipes) graded uncertain.
@@ -16,9 +18,9 @@ Fides is a from-scratch, tested, open-source testbed. Of the 11 workstreams with
 | **Memory wipes** (uncertain) | `wipe.py`: forced-memorization wipe with spot-check verification, reusing `security.py`'s exact detection-probability math against a different object (memory blocks instead of trace events). |
 | **Side channel wardens** (not on track) | `warden.py`: autocorrelation-based detection of injected periodic signals, with an empirically characterized detection floor and an honestly-documented harmonic-ambiguity limitation. |
 
-**Real but caveated (2):** `recompute.py` builds an independent SimHash-based recomputation-verification construction — not TOPLOC or DiFR, and not a contribution to either becoming production-ready. Its generalization test (three unrelated vector/hash-length configurations) is relevant to the *spirit* of **Frontier recomputation algorithms**, and its red-team tests (brute-force + adaptive hill-climbing) are relevant to the *spirit* of **Recomputation red-teaming** — but both attack `recompute.py`'s own scheme, not the actual algorithms those workstreams name. Read this as "demonstrates the principle is testable," not "makes progress on those two items."
+**Real but caveated (2):** `recompute.py` (an earlier, less accurate SimHash guess) and `toploc_reference.py` (the corrected, source-grounded reimplementation) both have generalization tests across unrelated configurations, relevant to the *spirit* of **Frontier recomputation algorithms** — and both have red-team tests (brute-force, adaptive hill-climbing) relevant to the *spirit* of **Recomputation red-teaming**, now run against the accurate reimplementation specifically, not only the earlier guess. `difr_reference.py` adds a third angle on item 10: a test showing that matching only the reference's single most-likely token isn't sufficient to evade detection, since Gumbel-max verification is sensitive to the whole distribution's shape. None of this attacks TOPLOC or DiFR's actual production systems, which is what these workstreams actually mean — read as "the principle is testable and holds up," not "progress on those two items."
 
-**Not attempted at all (2, downgraded from earlier claims — see below):** **Inference reproducibility workarounds** and **Recomputation algorithms**, both currently active elsewhere via TOPLOC and DiFR specifically. `toploc_reference.py` is a from-scratch reimplementation of TOPLOC's actual algorithm — top-k-by-magnitude selection, polynomial interpolation over GF(65537), graded exponent/mantissa comparison — built by directly reading [PrimeIntellect-ai/toploc](https://github.com/PrimeIntellect-ai/toploc)'s source after `pip install toploc` hit a real ABI mismatch between its prebuilt C extension and the available torch build in this environment (documented, not hidden, in `spec/PROTOCOL.md` section 11). This is meaningfully more accurate than `recompute.py`'s earlier SimHash guess — TOPLOC does not use random-hyperplane hashing — but it is still an independently-implemented, non-bit-compatible reference construction, not a contribution to the actual algorithms being tested on real hardware right now. Read the distinction precisely: verified understanding of the real algorithm, not participation in it.
+**Not attempted at all (2, but both now have primary-source-grounded reimplementations — see below):** **Inference reproducibility workarounds** and **Recomputation algorithms**, both currently active elsewhere via TOPLOC and DiFR specifically. `toploc_reference.py` and `difr_reference.py` are from-scratch reimplementations of TOPLOC's and Token-DiFR's actual algorithms — built by cloning both repositories and reading their real source (`poly.py` and `token_difr_vllm.py`), not by working from paper summaries. `pip install toploc` hit a real ABI mismatch in this environment (documented in `spec/PROTOCOL.md` section 11); `difr_reference.py`'s core math needs no GPU or torch at all and runs identically anywhere. Neither reimplementation is bit-compatible with or a contribution to the live codebases, and this README does not claim otherwise — see `fides_colab.ipynb` for an attempt to close that gap on a platform with working GPU/torch access.
 
 `accumulator.py` + `zk_verification.py` sit outside this table entirely — see "Two verification mechanisms" below. The 6 fully physical workstreams (passive optical TAPs, recomputation-server traffic capture, the storage-bank-to-inference-unit path, TAP installation, physical security and audits, side-channel shielding) are out of scope for any software project, this repo included. See `spec/PROTOCOL.md` section 9 for the complete, item-by-item audit.
 
@@ -61,7 +63,7 @@ Running `examples/demo.py` section [6] reproduces the same subtle covert-trainin
 ```bash
 pip install -e ".[dev]"
 python examples/demo.py     # honest device, a blatant liar, a subtle attacker, and a tampered ledger
-pytest tests/ -v             # 98 tests
+pytest tests/ -v             # 108 tests
 ```
 
 The demo runs a device sneaking one covert training step into otherwise-legitimate inference epochs while declaring everything "inference." In a real run it gets caught at epoch 3 out of 15 — consistent with the model's own prediction that a single epoch at this attack size has roughly a 46% catch probability, compounding to >99.7% by epoch 10 (see `examples/demo.py` section 5, and `spec/PROTOCOL.md` section 5).
@@ -96,12 +98,20 @@ src/fides/
   wipe.py           forced-memorization memory wipe + spot-check — memory wipes (#15)
   warden.py         autocorrelation-based covert-signal detection — side-channel wardens (#17)
   toploc_reference.py  faithful reimplementation of TOPLOC's real algorithm, read from its source (#5/#8, see honest caveat above)
+  difr_reference.py    faithful reimplementation of Token-DiFR's seed-synchronized Gumbel-max scheme, read from its source (#5/#8, same caveat)
   protocol.py       Tap: wires prover + verifier + registry + ledger together
 spec/PROTOCOL.md     RFC-style writeup: threat model, math, limitations, full 17-item audit
 docs/ARCHITECTURE.md  the diagram above plus a walk through each module
 examples/demo.py      end-to-end runnable demo (sampling vs. ZK mechanisms)
-tests/                98 tests, all passing
+fides_colab.ipynb     runs everything above in Colab/Kaggle, and attempts pip install toploc on a real GPU/torch stack (see section 11)
+CONTRIBUTING.md        where help is actually useful, and the ground rules for not overclaiming
+.github/workflows/tests.yml  CI: full suite + demo, Python 3.10-3.12, on every push and PR
+tests/                108 tests, all passing
 ```
+
+## Try it without installing anything
+
+`fides_colab.ipynb` runs the full test suite, the demo, and both TOPLOC/DiFR reimplementations in Colab or Kaggle — no local setup. It also retries the real `pip install toploc` from section 11 on a platform with a working GPU/torch stack, which this repo's original development environment didn't have. Upload it to [Colab](https://colab.research.google.com/) or a new Kaggle notebook, paste in your repo URL after pushing, and run top to bottom.
 
 ## References
 
@@ -114,12 +124,17 @@ tests/                98 tests, all passing
 - Rinberg et al., 2025. [Verifying LLM Inference to Detect Model Weight Exfiltration](https://arxiv.org/abs/2511.02620) — `security.py`'s Poisson approximation is tested against this derivation.
 - Ong et al., 2025. [TOPLOC: A Locality Sensitive Hashing Scheme for Trustless Verifiable Inference](https://arxiv.org/abs/2501.16007) ([code](https://github.com/PrimeIntellect-ai/toploc))
 - Karvonen et al., 2025. [DiFR: Inference Verification Despite Nondeterminism](https://arxiv.org/abs/2511.20621) — the "Token-DiFR" recomputation scheme referenced in the AI 2040 SITREP.
+- Karvonen et al., 2025. [DiFR: Inference Verification Despite Nondeterminism](https://arxiv.org/abs/2511.20621) ([code](https://github.com/adamkarvonen/difr)) — the "Token-DiFR" scheme `difr_reference.py` reimplements from source.
 - Cankaya, 2026. [Bit-Exact AI Inference Verification Without Performance Tradeoffs](https://arxiv.org/abs/2606.00279)
 - [AI 2040: Plan A — Verification Plan](https://ai-2040.com/supplements/verification-plan)
 - [Amodo Design — AI 2040 Plan A Verification SITREP](https://amododesign.com/ai-verification/plan-a-sitrep/)
 - Benaloh & de Mare, 1993. One-Way Accumulators: A Decentralized Alternative to Digital Signatures. EUROCRYPT '93.
 - Barić & Pfitzmann, 1997. Collision-Free Accumulators and Fail-Stop Signature Schemes Without Trees. EUROCRYPT '97.
 - Li, Li & Xue, 2007. Universal Accumulators with Efficient Nonmembership Proofs. ACNS 2007 — `accumulator.py`'s non-membership witness construction.
+
+## Contributing
+
+See `CONTRIBUTING.md` for where help is actually useful right now, and the ground rules this repo tries to hold itself to about not overclaiming coverage.
 
 ## License
 
