@@ -10,7 +10,7 @@ Status: reference implementation / testbed, not a deployment-ready design.
 
 **In scope.** A prover (the accelerator, or a tap sitting on its network path) that may misreport its own workload class. The prover commits to a trace and later may be asked to reveal a sample of it. We assume the prover cannot predict, before committing, which indices the verifier will sample — this is enforced by having the verifier's random seed and sampling logic live entirely on the verifier's side, chosen after the commitment is published. We also assume a verifier/recomputation-server that may itself be compromised, coerced, or buggy, and could try to under-report or silently edit its own findings after the fact.
 
-**Out of scope for this reference implementation.** Physical tampering with the tap hardware itself (SITREP: "Tap installation and monitoring", "Physical security and audits" — both graded not on track); side-channel exfiltration of information around the tap rather than through it (SITREP: "Side-channel mitigation", "Side-channel wardens" — both not on track); and an adversary that adapts its workload's *structural* signature specifically to evade `classifier.py` (see section 4). None of these are solved here, and none of them should be read as solved by proxy.
+**Out of scope for this reference implementation.** Physical tampering with the tap hardware itself (SITREP: "TAP installation and network links", "Physical security and audits" — both graded not on track); side-channel exfiltration of information around the tap rather than through it (SITREP: "Side channel mitigation", "Side channel wardens" — both not on track); and an adversary that adapts its workload's *structural* signature specifically to evade `classifier.py` (see section 4). None of these are solved here, and none of them should be read as solved by proxy.
 
 ## 3. Commitment scheme
 
@@ -67,3 +67,31 @@ Sections 3–7 describe a probabilistic scheme: the verifier samples, and a lie 
 **What this does not get you for free.** The accumulator proves a set-membership claim over *which op-codes occurred at least once* — it says nothing about timing, ordering, byte counts, or how many times each op ran, all of which the Merkle commitment in section 3 does expose (to the sampled subset, at least). The two mechanisms answer overlapping but non-identical questions, and a real deployment likely wants both: the accumulator for a hard compliance gate, sampling for the richer behavioral signal.
 
 **The honest limitation.** Security here rests on the strong RSA assumption in a group whose order nobody knows. `trusted_setup()` generates that group's modulus by generating a fresh RSA keypair and discarding the factorization — but *this repository's own code* is the party doing that discarding, which is exactly the trust assumption a real deployment cannot make of a single party. Production use needs either an actual mutually-trusted third party to run setup once, or a proper multi-party ceremony, or a switch to a trapdoor-free group construction (class groups of imaginary quadratic order are the standard answer in the literature, and are real future work for this repo, not implemented here). This is stated plainly in `accumulator.py`'s module docstring, not buried.
+
+## 9. Full audit against all 17 SITREP workstreams
+
+This section exists so nobody, including the author, can quietly round "covers 2 named gaps" up to "covers the field." Grades and workstream names below are taken directly from [Amodo Design's SITREP](https://amododesign.com/ai-verification/plan-a-sitrep/) as published; software-addressability is this repo's own judgment call, not Amodo's.
+
+| # | Workstream | Grade | Any software-only path exists? | Fides status |
+|---|---|---|---|---|
+| 1 | Passive optical TAPs | Active | No — physical optical hardware | Out of scope |
+| 2 | Recomputation servers (capture) | Active | No — physical NIC/network capture infrastructure | Out of scope |
+| 3 | New TAP types & bandwidth limits | Not started | Yes | **Covered — `commitment.py`** |
+| 4 | Path from storage bank to inference units | Not on track | Mostly no — data diodes, physical network partitioning | Out of scope |
+| 5 | Inference reproducibility workarounds (TOPLOC, DiFR) | Active | Yes | Not attempted — cited as related work only |
+| 6 | Reproducible inference stack | Not started | Yes | Not attempted — needs a real inference stack; this repo simulates trace metadata, it runs no inference |
+| 7 | Network reproducibility | Not started | Partially — the supplement itself says this may need firmware/hardware work too | Not attempted |
+| 8 | Recomputation algorithms (TOPLOC, DiFR) | Active | Yes | Not attempted — same caveat as #5 |
+| 9 | Frontier recomputation algorithms | Not started | Yes | **Not attempted** — `classifier.py` answers a different question (workload *type*, not output *correctness*); an earlier draft of the README overstated this and has been corrected |
+| 10 | Recomputation red-teaming | Not started | Yes | Fides red-teams its own classifier and its own sampling scheme (`test_attestation.py`, `test_zk_verification.py`); it does not red-team TOPLOC/DiFR, which is what this workstream actually means |
+| 11 | Recomputation server security | Not on track | Partially — a software attestation layer is plausible but the hard part is defending a machine inside the adversary's own facility | Not attempted — do not conflate with #13 below |
+| 12 | TAP installation & network links | Not on track | No — physical installation at up to 100,000-cable scale | Out of scope |
+| 13 | Verification reporting | Not on track | Yes | **Covered — `ledger.py`** (this is reporting-integrity only, not #11's server-compute-integrity) |
+| 14 | Physical security and audits | Not on track | No — in-person inspection of compute and installed hardware | Out of scope |
+| 15 | Memory wipes (PoSE) | Uncertain | Partially — the wipe *algorithm* is software; credible validation needs real hardware, per Amodo's own testing note | Not attempted — a software simulation testbed (analogous to `trace.py`'s role for the classifier) is plausible future work |
+| 16 | Side channel mitigation (shielding + noise) | Not on track | No — physical shielding, by the SITREP's own framing | Out of scope |
+| 17 | Side channel wardens | Not on track | Yes, as a monitoring/anomaly-detection layer, even without real EM/power sensor data to start | Not attempted — plausible future work, same shape as #15 |
+
+**Tally.** 6 of 17 are physical by construction and no software project touches them regardless of effort (#1, #2, #4, #12, #14, #16). Of the 11 that have a real software component, Fides directly closes 2 (#3, #13). #5, #8 are already active elsewhere (TOPLOC/DiFR) and re-implementing them would be duplicated effort, not a gap closed. That leaves #6, #7, #9, #10, #11 (partial), #15, and #17 as genuine, honestly-open, software-touchable gaps this repo has not attempted — of which #15 and #17 are the most tractable next targets, for the same reason #3 and #13 were: they don't require real datacenter access to build a credible first version.
+
+`accumulator.py` and `zk_verification.py` sit outside this table entirely — they target "Cryptographic/ZKP verification," which Amodo's SITREP names as a separate, roughly-$100M-funded parallel research track to the network-tap approach these 17 workstreams describe, not a 18th row in it.
