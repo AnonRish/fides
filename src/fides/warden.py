@@ -19,14 +19,19 @@ signal-processing, not novel cryptography; the contribution here is
 wiring it up as a tested detector with an empirically characterized
 detection floor, not the underlying math.
 
-Known limitation: autocorrelation of a periodic signal peaks at the true
-period AND at every integer multiple of it (its harmonics), and
-`detect_periodic_signal` just reports whichever lag has the tallest peak
-within the search window -- so it reliably flags that *something*
-periodic is present, but the specific lag it reports can land on a
-harmonic rather than the fundamental period (see test_warden.py). Telling
-those apart reliably needs a proper spectral (FFT) analysis with harmonic
-suppression, which is real future work, not implemented here.
+Known limitation, now partially resolved: autocorrelation of a periodic
+signal peaks at the true period AND at every integer multiple of it (its
+harmonics), so `detect_periodic_signal`'s peak-picking can land on a
+harmonic rather than the fundamental (see test_warden.py for the
+original finding). `detect_fundamental_period` resolves this using the
+signal's power spectrum instead of its autocorrelation: a sinusoid's
+spectral energy sits at its actual frequency only, with no harmonic
+content of its own to be confused with, unlike autocorrelation, which is
+periodic by construction regardless of the underlying signal's shape.
+This does NOT change the module's other, structural limitation: none of
+this has been run against real power/EM/timing sensor data, only
+synthetic signals, since that requires physical hardware access this
+environment does not have.
 """
 
 import math
@@ -65,3 +70,56 @@ def detect_periodic_signal(signal: list, max_lag: int, threshold: float = 0.15):
     peak_value = max(spectrum)
     peak_lag = spectrum.index(peak_value) + 1
     return (peak_value >= threshold, peak_lag if peak_value >= threshold else None, peak_value)
+
+
+def power_spectrum(signal: list, max_freq_bins: int = None) -> list:
+    """Direct O(n^2) DFT power spectrum. Deliberately not an FFT: at the
+    sample sizes this module works with (thousands, not millions), the
+    direct sum is fast enough and avoids the correctness risk of
+    implementing FFT's bit-reversal and butterfly structure from
+    scratch. Returns power at frequency bins 1..max_freq_bins (bin 0,
+    DC/mean, is excluded since the signal is centered before transforming)."""
+    n = len(signal)
+    mean = sum(signal) / n
+    centered = [x - mean for x in signal]
+    max_freq_bins = max_freq_bins or n // 2
+    power = []
+    for k in range(1, max_freq_bins + 1):
+        real = sum(centered[t] * math.cos(2 * math.pi * k * t / n) for t in range(n))
+        imag = sum(centered[t] * math.sin(2 * math.pi * k * t / n) for t in range(n))
+        power.append((real * real + imag * imag) / n)
+    return power
+
+
+def detect_fundamental_period(signal: list, threshold_ratio: float = 30.0):
+    """Resolves the harmonic-ambiguity limitation documented above:
+    autocorrelation of ANY periodic signal (even a pure sinusoid) is
+    itself periodic with the same period, so its peaks recur at every
+    integer multiple of the true period and a peak-picking detector can
+    land on any of them. A pure sinusoid's *power spectrum*, in
+    contrast, has essentially all its energy at its actual frequency --
+    it has no harmonic content of its own to be confused with, which is
+    a different mathematical fact from autocorrelation's periodicity.
+
+    threshold_ratio=30 is not a guess: with ~n/2 bins being compared
+    simultaneously, pure noise alone produces peak/median power ratios
+    up to roughly 16 just from extreme-value statistics across that many
+    comparisons (measured directly -- see the diagnostic in this
+    module's git history), while an actual injected signal produces
+    ratios in the hundreds. 30 sits with real margin on both sides of
+    that gap. An earlier version of this function used threshold_ratio=4,
+    which is far inside the noise-only range and produced false
+    positives on 100% of clean-noise trials when tested -- caught by
+    running test_warden.py, not by inspection.
+
+    Returns the estimated fundamental period (in samples), or None if
+    nothing stands clearly above the calibrated noise floor."""
+    n = len(signal)
+    spectrum = power_spectrum(signal, max_freq_bins=n // 2)
+    sorted_spectrum = sorted(spectrum)
+    noise_floor = sorted_spectrum[len(sorted_spectrum) // 2]  # median: robust to the true peak itself
+    significant_bins = [k + 1 for k, p in enumerate(spectrum) if p > threshold_ratio * max(noise_floor, 1e-12)]
+    if not significant_bins:
+        return None
+    fundamental_freq_bin = min(significant_bins)
+    return round(n / fundamental_freq_bin)

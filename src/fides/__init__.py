@@ -30,15 +30,25 @@ from .accumulator import (
     verify_nonmembership,
 )
 from .zk_verification import ZKProver, ZKVerifier, ZKComplianceProof, FORBIDDEN_OPS
-from .wipe import wipe, spot_check, fill_block, block_addresses
+from .wipe import (
+    wipe,
+    spot_check,
+    fill_block,
+    block_addresses,
+    expected_merkle_root,
+    actual_merkle_root,
+    verify_wipe_certain,
+)
 from .warden import (
     generate_baseline_noise,
     inject_covert_signal,
     autocorrelation,
     autocorrelation_spectrum,
     detect_periodic_signal,
+    power_spectrum,
+    detect_fundamental_period,
 )
-from .determinism import deterministic_sum, racy_sum
+from .determinism import deterministic_sum, racy_sum, canonical_reduce
 from .recompute import (
     RecomputationVerifier,
     RecomputationFingerprint,
@@ -59,6 +69,8 @@ from .server_attestation import (
     issue_challenge,
     respond_to_challenge,
     verify_response,
+    verify_threshold,
+    ThresholdAttestationResult,
 )
 from .toploc_reference import (
     to_bfloat16_bits,
@@ -123,13 +135,19 @@ __all__ = [
     "spot_check",
     "fill_block",
     "block_addresses",
+    "expected_merkle_root",
+    "actual_merkle_root",
+    "verify_wipe_certain",
     "generate_baseline_noise",
     "inject_covert_signal",
     "autocorrelation",
     "autocorrelation_spectrum",
     "detect_periodic_signal",
+    "power_spectrum",
+    "detect_fundamental_period",
     "deterministic_sum",
     "racy_sum",
+    "canonical_reduce",
     "RecomputationVerifier",
     "RecomputationFingerprint",
     "generate_activation_vector",
@@ -145,6 +163,8 @@ __all__ = [
     "issue_challenge",
     "respond_to_challenge",
     "verify_response",
+    "verify_threshold",
+    "ThresholdAttestationResult",
     "to_bfloat16_bits",
     "bfloat16_parts",
     "select_topk_by_magnitude",

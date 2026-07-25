@@ -19,9 +19,18 @@ class (an attacker who fully emulates the original code's behavior while
 also running additional undetected logic alongside it gets past this,
 which is exactly why this is documented as a partial mitigation, not a
 solution -- see spec/PROTOCOL.md).
+
+`verify_threshold` raises the bar further: requiring agreement from a
+threshold of independently-operated servers means a physical attacker
+must compromise multiple parties at once, not one. This is a genuine
+improvement, and still not a solution -- if the "independent" parties
+aren't actually independent (same operator, same facility), the
+threshold is theater. That distinction is the whole point of calling
+this a partial mitigation rather than claiming it's resolved.
 """
 
 import os
+from dataclasses import dataclass
 
 import blake3
 
@@ -47,3 +56,46 @@ def respond_to_challenge(software_fp: bytes, challenge: bytes, secret_state: byt
 
 def verify_response(expected_software_fp: bytes, challenge: bytes, expected_state: bytes, response: bytes) -> bool:
     return respond_to_challenge(expected_software_fp, challenge, expected_state) == response
+
+
+@dataclass
+class ThresholdAttestationResult:
+    total_parties: int
+    agreeing_parties: int
+    threshold: int
+    threshold_met: bool
+
+
+def verify_threshold(
+    expected_software_fp: bytes,
+    challenge: bytes,
+    expected_state: bytes,
+    responses: list,
+    threshold: int,
+) -> ThresholdAttestationResult:
+    """Raises the bar set by verify_response() alone: instead of trusting
+    one server's self-attestation, require agreement from a threshold of
+    independently-operated verification servers. Compromising a single
+    party with physical access no longer suffices -- an adversary now
+    needs to compromise `threshold` of `len(responses)` parties
+    simultaneously, which is a genuine increase in the resources and
+    coordination an attack requires.
+
+    What this does NOT do: eliminate the underlying problem. If all the
+    "independent" parties are ultimately operated by, hosted by, or
+    otherwise controllable by one adversary (e.g. a single datacenter
+    operator running several nodes that only look independent), the
+    threshold provides no real protection -- this raises the cost of
+    physical compromise, it does not remove the need for the parties to
+    actually be independent, which this module cannot verify or enforce
+    on its own."""
+    agreeing = sum(
+        1 for _, response in responses
+        if verify_response(expected_software_fp, challenge, expected_state, response)
+    )
+    return ThresholdAttestationResult(
+        total_parties=len(responses),
+        agreeing_parties=agreeing,
+        threshold=threshold,
+        threshold_met=agreeing >= threshold,
+    )

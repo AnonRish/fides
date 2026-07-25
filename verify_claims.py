@@ -40,18 +40,18 @@ WORKSTREAMS = [
     Workstream(3, "New TAP types & bandwidth limits", "Not started", "SOLID", ["commitment.py", "test_commitment.py"], ""),
     Workstream(4, "Path from storage bank to inference units", "Not on track", "OUT_OF_SCOPE_PHYSICAL", [], "Data diodes, physical network partitioning."),
     Workstream(5, "Inference reproducibility workarounds (TOPLOC, DiFR)", "Active", "NOT_ATTEMPTED_REIMPLEMENTED", ["toploc_reference.py", "difr_reference.py"], "Independent reimplementations exist; neither is a contribution to the live, active algorithms."),
-    Workstream(6, "Reproducible inference stack", "Not started", "SOLID_PARTIAL", ["determinism.py", "test_determinism.py"], "Fixes reduction-order nondeterminism only, not a full inference stack."),
-    Workstream(7, "Network reproducibility", "Not started", "SOLID_PARTIAL", ["packet_reconstruction.py", "test_packet_reconstruction.py"], "Order-independent verification, explicitly not bit-exact packet replay."),
+    Workstream(6, "Reproducible inference stack", "Not started", "SOLID_PARTIAL", ["determinism.py", "test_determinism.py"], "Fixes reduction-order AND canonical-ordering nondeterminism (both halves the module once flagged as needed); still not a full inference stack -- no real model or GPU here."),
+    Workstream(7, "Network reproducibility", "Not started", "SOLID_PARTIAL", ["packet_reconstruction.py", "test_packet_reconstruction.py"], "Order-independent verification, explicitly not bit-exact packet replay -- Amodo's own text says that may need firmware/hardware work, which is why no further software-only extension was attempted here."),
     Workstream(8, "Recomputation algorithms (TOPLOC, DiFR)", "Active", "NOT_ATTEMPTED_REIMPLEMENTED", ["toploc_reference.py", "difr_reference.py"], "Same caveat as #5."),
     Workstream(9, "Frontier recomputation algorithms", "Not started", "CAVEATED", ["toploc_reference.py", "test_toploc_reference.py"], "Generalization tested on the independent reimplementation only."),
     Workstream(10, "Recomputation red-teaming", "Not started", "CAVEATED", ["toploc_reference.py", "difr_reference.py"], "Red-teamed the independent reimplementations, not TOPLOC/DiFR's real systems."),
-    Workstream(11, "Recomputation server security", "Not on track", "SOLID_PARTIAL", ["server_attestation.py", "test_server_attestation.py"], "Catches logic substitution/rollback only; not physical-compromise-resistant."),
+    Workstream(11, "Recomputation server security", "Not on track", "SOLID_PARTIAL", ["server_attestation.py", "test_server_attestation.py"], "Now includes threshold multi-party attestation, requiring compromise of multiple independent parties, not one -- still not resistant to coordinated compromise of all parties, which this module cannot detect or prevent."),
     Workstream(12, "TAP installation & network links", "Not on track", "OUT_OF_SCOPE_PHYSICAL", [], "Physical installation at scale."),
     Workstream(13, "Verification reporting", "Not on track", "SOLID", ["ledger.py", "test_ledger.py"], ""),
     Workstream(14, "Physical security and audits", "Not on track", "OUT_OF_SCOPE_PHYSICAL", [], "In-person inspection."),
-    Workstream(15, "Memory wipes (PoSE)", "Uncertain", "SOLID_PARTIAL", ["wipe.py", "test_wipe.py"], "Algorithm + spot-check only; no real-hardware validation."),
+    Workstream(15, "Memory wipes (PoSE)", "Uncertain", "SOLID_PARTIAL", ["wipe.py", "test_wipe.py"], "Upgraded from probabilistic spot-checking to certain Merkle-root verification (catches any tampering with certainty, not a compounding probability); still no real-hardware validation -- Amodo's own SITREP grades this workstream 'uncertain' even in principle."),
     Workstream(16, "Side channel mitigation (shielding + noise)", "Not on track", "OUT_OF_SCOPE_PHYSICAL", [], "Physical shielding."),
-    Workstream(17, "Side channel wardens", "Not on track", "SOLID_PARTIAL", ["warden.py", "test_warden.py"], "Detector on synthetic telemetry; no real sensor data."),
+    Workstream(17, "Side channel wardens", "Not on track", "SOLID_PARTIAL", ["warden.py", "test_warden.py"], "Spectral detector now resolves the harmonic-ambiguity limitation autocorrelation alone had (empirically calibrated threshold, not a guess -- an earlier threshold was tested and found to false-positive 100% of the time before being fixed); still no real sensor data."),
 ]
 
 

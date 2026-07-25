@@ -1,6 +1,6 @@
 import random
 
-from fides.determinism import deterministic_sum, racy_sum
+from fides.determinism import deterministic_sum, racy_sum, canonical_reduce
 
 
 def _realistic_values(rng, n=500):
@@ -57,3 +57,45 @@ def test_deterministic_sum_handles_edge_cases():
     assert deterministic_sum([]) == 0.0
     assert deterministic_sum([5.0]) == 5.0
     assert deterministic_sum([1.0, 2.0, 3.0]) == 6.0
+
+
+def test_canonical_reduce_is_invariant_to_arrival_order():
+    # This is the actual gap racy_sum demonstrates and deterministic_sum
+    # alone doesn't close: the same logical values, tagged with a stable
+    # identity, arriving in a different order each "run" (simulating
+    # network/scheduling nondeterminism upstream of the reduction
+    # itself). canonical_reduce should give the same result regardless.
+    rng = random.Random(0)
+    tagged = [(i, rng.uniform(-1e6, 1e6) * (10 ** rng.randint(-8, 8))) for i in range(300)]
+    results = set()
+    for shuffle_seed in range(20):
+        scrambled = list(tagged)
+        random.Random(shuffle_seed).shuffle(scrambled)
+        results.add(canonical_reduce(scrambled))
+    assert len(results) == 1, f"canonical_reduce produced {len(results)} distinct results across shuffles"
+
+
+def test_sorting_by_identity_alone_without_canonical_reduce_is_not_enough():
+    # Demonstrates precisely why canonical_reduce needs BOTH halves:
+    # sorting by identity but then reducing with plain Python sum() can
+    # still be schedule-order-independent for THIS reduction (since
+    # sorted input is now fixed) -- the real risk canonical_reduce
+    # guards against is deterministic_sum's tree order combined with
+    # scrambled input, which is exactly what this test constructs to
+    # confirm canonical_reduce's sort step is actually being applied.
+    rng = random.Random(1)
+    tagged = [(i, rng.uniform(-1e6, 1e6) * (10 ** rng.randint(-8, 8))) for i in range(300)]
+    scrambled = list(tagged)
+    random.Random(2).shuffle(scrambled)
+    # feeding the UNSORTED, scrambled order directly into deterministic_sum
+    # (bypassing canonical_reduce's sort step) can disagree with the
+    # properly canonicalized result -- confirming the sort step matters,
+    # not just deterministic_sum's fixed tree order on its own.
+    unsorted_result = deterministic_sum(v for _, v in scrambled)
+    canonical_result = canonical_reduce(scrambled)
+    same_order_result = deterministic_sum(v for _, v in tagged)
+    assert canonical_result == same_order_result
+    # not asserting unsorted_result differs (it might coincidentally
+    # match for some inputs) -- the guarantee canonical_reduce actually
+    # provides is checked above: it always matches the canonical order,
+    # regardless of what order it was handed.

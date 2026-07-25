@@ -2,6 +2,7 @@ from fides.warden import (
     generate_baseline_noise,
     inject_covert_signal,
     detect_periodic_signal,
+    detect_fundamental_period,
 )
 
 
@@ -63,3 +64,37 @@ def test_detection_floor_empirical_characterization():
         assert results[b] >= results[a] - 0.2, results  # allow noise slack, not strict monotonicity
     # and detection should clearly work at the high end
     assert results[1.0] >= 0.8
+
+
+def test_spectral_detector_resolves_the_harmonic_ambiguity_autocorrelation_could_not():
+    # The original harmonic-ambiguity finding: autocorrelation landed on
+    # lag 69 (= 3 x true period 23) rather than 23 itself. This checks
+    # the spectral detector gets the actual fundamental, not a harmonic,
+    # on the same signal.
+    baseline = generate_baseline_noise(2000, stdev=1.0, seed=1)
+    true_period = 23
+    modulated = inject_covert_signal(baseline, period=true_period, amplitude=0.7)
+    detected_period = detect_fundamental_period(modulated)
+    assert detected_period is not None
+    assert abs(detected_period - true_period) <= 1, (
+        f"expected the fundamental period ~{true_period}, got {detected_period}"
+    )
+
+
+def test_spectral_detector_does_not_confuse_a_harmonic_for_the_fundamental():
+    for true_period in (17, 23, 31):
+        baseline = generate_baseline_noise(2000, stdev=1.0, seed=true_period)
+        modulated = inject_covert_signal(baseline, period=true_period, amplitude=0.8)
+        detected = detect_fundamental_period(modulated)
+        assert detected is not None
+        assert abs(detected - true_period) <= 1, (true_period, detected)
+
+
+def test_spectral_detector_returns_none_on_pure_noise():
+    false_positives = 0
+    trials = 15
+    for seed in range(trials):
+        signal = generate_baseline_noise(2000, stdev=1.0, seed=seed + 500)
+        if detect_fundamental_period(signal) is not None:
+            false_positives += 1
+    assert false_positives == 0, f"{false_positives}/{trials} false positives on clean noise"
