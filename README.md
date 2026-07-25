@@ -11,6 +11,7 @@ Fides is a from-scratch, tested, open-source testbed for three of those specific
 | **New tap types and bandwidth limits** — *"sampling or packet-hashing taps"* (not started) | `commitment.py`: a BLAKE3 Merkle-tree tap that commits to every event locally and cheaply, and only ever transmits full data for a small, auditor-chosen sample — instead of mirroring 100% of traffic to a recomputation server. |
 | **Verification reporting** — *"the integrity of what the recomputation server reports back to the verifier has not been explored"* (not on track) | `ledger.py`: a hash-chained, signed audit log. A compromised or coerced auditor can't quietly rewrite a past finding without breaking the chain from that point forward. |
 | **Frontier recomputation algorithms** / structural workload classification (not started; related work ongoing) | `classifier.py` + `features.py`: an interpretable, privacy-preserving classifier that separates inference-shaped from training-shaped kernel traces from metadata alone (no weights, no tokens). |
+| **Privacy-preserving AI verification** — named alongside lie detectors in the covert-project supplement as one of two technologies Plan A's endpoint assumes exist | `accumulator.py` + `zk_verification.py`: an RSA-accumulator zero-knowledge proof that an epoch contains *no* forbidden op anywhere in it — a soundness guarantee instead of a spot-check probability. See "Two verification mechanisms" below. |
 
 This is **not** a claim to have solved any of these — it's a solid, honest, working reference point. In particular, the [Compute Verification Project](mailto:dreuter14@gmail.com) has already published a more advanced working draft that structurally distinguishes inference from training via communication patterns, and is running an open red-teaming competition against it; anyone extending the classifier here should treat that as the standard to beat, not this repo.
 
@@ -35,12 +36,25 @@ flowchart LR
 
 The prover (device/tap) never reveals the full trace by default — only the small sample the verifier asks for, chosen *after* the commitment is published, so the prover can't predict and hide the bad ones. This mirrors the "packet-based verification" appendix in the [AI 2040 verification supplement](https://ai-2040.com/supplements/verification-plan#appendix-packet-based-verification), which derives the same detection-probability math this repo implements and tests against.
 
+## Two verification mechanisms, not one
+
+`attestation.py` and `zk_verification.py` answer the same question — does the declared workload match what actually ran? — with two different, complementary guarantees:
+
+| | `attestation.py` (Merkle + spot-check) | `zk_verification.py` (RSA accumulator) |
+|---|---|---|
+| Guarantee | Bounded detection **probability** per epoch, compounding toward certainty over repeated epochs (`security.py`) | Detection **certainty**: a forbidden op's non-membership witness provably cannot be constructed if the op is present |
+| What's revealed | A small random sample of raw events, chosen after commitment | Only the accumulator value and non-membership witnesses — no event ever leaves the device |
+| Cost | Cheap per epoch; needs many epochs for confidence | One accumulator + 3 witnesses per epoch; RSA exponentiation cost, no sampling |
+| What it can express | Anything visible in the revealed sample (timing, byte counts, ordering) | Only set-membership claims ("no forbidden op occurred") over the accumulated set |
+
+Running `examples/demo.py` section [6] reproduces the same subtle covert-training attack from section [3] and catches it 20/20 independent trials under the accumulator, against roughly 40-50% per epoch under sampling — not because one implementation is better than the other, but because they're different kinds of guarantee. See `spec/PROTOCOL.md` section 8 for when you'd actually want each.
+
 ## Quickstart
 
 ```bash
 pip install -e ".[dev]"
 python examples/demo.py     # honest device, a blatant liar, a subtle attacker, and a tampered ledger
-pytest tests/ -v             # 44 tests
+pytest tests/ -v             # 59 tests
 ```
 
 The demo runs a device sneaking one covert training step into otherwise-legitimate inference epochs while declaring everything "inference." In a real run it gets caught at epoch 3 out of 15 — consistent with the model's own prediction that a single epoch at this attack size has roughly a 46% catch probability, compounding to >99.7% by epoch 10 (see `examples/demo.py` section 5, and `spec/PROTOCOL.md` section 5).
@@ -51,6 +65,7 @@ This is a **software testbed**, not hardware, and it should be read that way:
 
 - `trace.py` **simulates** kernel-level execution traces with the statistical shape training and inference workloads are documented to have (backward-pass kernels, optimizer writes, KV-cache growth, gradient vs. activation all-reduce patterns). It does not hook into a real profiler (CUPTI/Nsight) or real GPU traffic. Swapping in a real trace source behind the same `ExecutionEpoch` interface is the natural next step and is the actual "not started" engineering work.
 - The commitment, signature, spot-check, and ledger logic are real, tested, and not simplified toy versions of the cryptography — BLAKE3 Merkle proofs and Ed25519 signatures work exactly as they would in a production system, just running in-process instead of on tap hardware sitting inside a datacenter.
+- The RSA accumulator in `accumulator.py` is likewise real, tested cryptography, not a simulation of one — but it has a genuine, named limitation: `trusted_setup()` generates the RSA modulus itself, and whoever runs that step could in principle know its factorization and forge proofs. A real deployment needs an actual trusted third party or a multi-party ceremony for that one step; this repo is honest about not solving it, in the same docstring that explains the rest of the math.
 - The classifier is intentionally simple and interpretable, not adversarially robust. Section 4 of `spec/PROTOCOL.md` is explicit about what it would take to beat it, and points at the Compute Verification Project's open competition on exactly this problem.
 
 ## Repository layout
@@ -65,11 +80,13 @@ src/fides/
   attestation.py    Prover / Verifier: commit, spot-check reveal, audit
   ledger.py         hash-chained, signed audit ledger (tamper-evident reporting)
   security.py       detection-probability math (exact + Poisson approximation)
+  accumulator.py    RSA accumulator: membership / non-membership proofs
+  zk_verification.py ZKProver / ZKVerifier: certainty-based compliance proof
   protocol.py       Tap: wires prover + verifier + registry + ledger together
 spec/PROTOCOL.md     RFC-style writeup: threat model, math, limitations
 docs/ARCHITECTURE.md  the diagram above plus a walk through each module
-examples/demo.py      end-to-end runnable demo
-tests/                44 tests, all passing
+examples/demo.py      end-to-end runnable demo, both mechanisms
+tests/                59 tests, all passing
 ```
 
 ## References
@@ -86,6 +103,9 @@ tests/                44 tests, all passing
 - Cankaya, 2026. [Bit-Exact AI Inference Verification Without Performance Tradeoffs](https://arxiv.org/abs/2606.00279)
 - [AI 2040: Plan A — Verification Plan](https://ai-2040.com/supplements/verification-plan)
 - [Amodo Design — AI 2040 Plan A Verification SITREP](https://amododesign.com/ai-verification/plan-a-sitrep/)
+- Benaloh & de Mare, 1993. One-Way Accumulators: A Decentralized Alternative to Digital Signatures. EUROCRYPT '93.
+- Barić & Pfitzmann, 1997. Collision-Free Accumulators and Fail-Stop Signature Schemes Without Trees. EUROCRYPT '97.
+- Li, Li & Xue, 2007. Universal Accumulators with Efficient Nonmembership Proofs. ACNS 2007 — `accumulator.py`'s non-membership witness construction.
 
 ## License
 

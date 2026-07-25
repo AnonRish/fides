@@ -18,6 +18,18 @@ from .security import (
     repeated_detection_probability,
     monte_carlo_detection_rate,
 )
+from .accumulator import (
+    AccumulatorSetup,
+    trusted_setup,
+    hash_to_prime,
+    is_probable_prime,
+    accumulate,
+    membership_witness,
+    verify_membership,
+    nonmembership_witness,
+    verify_nonmembership,
+)
+from .zk_verification import ZKProver, ZKVerifier, ZKComplianceProof, FORBIDDEN_OPS
 
 __all__ = [
     "KernelOp",
@@ -44,6 +56,19 @@ __all__ = [
     "poisson_detection_probability",
     "repeated_detection_probability",
     "monte_carlo_detection_rate",
+    "AccumulatorSetup",
+    "trusted_setup",
+    "hash_to_prime",
+    "is_probable_prime",
+    "accumulate",
+    "membership_witness",
+    "verify_membership",
+    "nonmembership_witness",
+    "verify_nonmembership",
+    "ZKProver",
+    "ZKVerifier",
+    "ZKComplianceProof",
+    "FORBIDDEN_OPS",
 ]
 
 __version__ = "0.1.0"
