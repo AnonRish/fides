@@ -4,9 +4,9 @@
 
 **A reference implementation of a packet-hashing inference-only verification tap, built against the AI 2040: Plan A verification agenda.**
 
-[AI 2040: Plan A](https://ai-2040.com/) is the AI Futures Project's (the team behind [AI 2027](https://ai-2027.com/)) recommendation for how the US and China could verifiably slow down the race to superintelligence. The plan's [verification supplement](https://ai-2040.com/supplements/verification-plan) argues the whole deal is only as strong as the ability to check compliance without relying on trust. Amodo Design, the hardware firm prototyping the plan's network-tap-and-recomputation approach, published a [SITREP](https://amododesign.com/ai-verification/plan-a-sitrep/) grading the 17 engineering workstreams that approach needs: 4 active, 6 not started, 7 not on track, and one (memory wipes) graded uncertain.
+[AI 2040: Plan A](https://ai-2040.com/) is the AI Futures Project's (the team behind [AI 2027](https://ai-2027.com/)) recommendation for how the US and China could verifiably slow down the race to superintelligence. The plan's [verification supplement](https://ai-2040.com/supplements/verification-plan) argues the whole deal is only as strong as the ability to check compliance without relying on trust. Amodo Design, the hardware firm prototyping the plan's network-tap-and-recomputation approach, published a [SITREP](https://amododesign.com/ai-verification/plan-a-sitrep/) grading the 17 engineering workstreams that approach needs: 4 active, 5 not started, 7 not on track, and one (memory wipes) graded uncertain.
 
-Fides is a from-scratch, tested, open-source testbed. Of the 11 workstreams with any software-only path at all, it directly and solidly addresses **7**, has a real but honestly-caveated partial connection to **2** more, and does not touch **2**:
+Fides is a from-scratch, tested, open-source testbed. Of the 11 workstreams with any software-only path at all, it directly addresses **7** (2 solidly, 5 as narrow partial slices; `python verify_claims.py` prints the breakdown), has a real but honestly-caveated partial connection to **2** more, and does not touch **2**:
 
 | Workstream (SITREP grade) | What Fides does about it |
 |---|---|
